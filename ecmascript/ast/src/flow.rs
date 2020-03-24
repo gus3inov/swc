@@ -61,6 +61,29 @@ pub struct BooleanLiteralTypeAnnotation {
     pub value: Box<Expr>,
 }
 
+#[ast_node("InferredPredicate")]
+#[derive(Copy, Eq, Hash)]
+pub struct InferredPredicate {
+    pub span: Span,
+}
+
+#[ast_node("DeclaredPredicate")]
+#[derive(Eq, Hash)]
+pub struct DeclaredPredicate {
+    pub span: Span,
+    pub value: Box<Expr>,
+}
+
+#[ast_node]
+#[derive(Eq, Hash)]
+pub enum InferredOrDeclaredPredicate {
+    #[tag("InferredPredicate")]
+    InferredPredicate(InferredPredicate),
+
+    #[tag("DeclaredPredicate")]
+    DeclaredPredicate(DeclaredPredicate),
+}
+
 #[ast_node("DeclareClass")]
 #[derive(Eq, Hash)]
 pub struct DeclareClass {
@@ -75,4 +98,5 @@ pub struct DeclareFunction {
     pub span: Span,
     pub declare: bool,
     pub id: Ident,
+    pub predicate: InferredOrDeclaredPredicate, 
 }
