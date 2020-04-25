@@ -20,7 +20,7 @@ use swc_common::{ast_node, Span};
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialze)]
 #[cfd_attr(feature = "fold", derive(Fold))]
 pub enum KeywordTypeKind {
-    #[serde(rename = "any")] 
+    #[serde(rename = "any")]
     AnyTypeAnnotation,
 
     #[serde(rename = "boolean")]
@@ -31,7 +31,7 @@ pub enum KeywordTypeKind {
 
     #[serde(rename = "number")]
     NumberTypeAnnotation,
-    
+
     #[serde(rename = "null")]
     NullLiteralTypeAnnotation,
 
@@ -54,6 +54,35 @@ pub struct ThisTypeAnnotation {
     pub span: Span,
 }
 
+#[ast_node("TypeAnnotation")]
+#[derive(Eq, Hash)]
+pub struct TypeAnn {
+    pub span: Span,
+    #[serde(rename = "typeAnnotation")]
+    pub type_ann: Box<FlowType>,
+}
+
+#[ast_node("TypeParamDecl")]
+#[derive(Eq, Hash)]
+pub struct TsTypeParamDecl {
+    pub span: Span,
+    #[serde(rename = "parameters")]
+    pub params: Vec<TypeParam>,
+}
+
+#[ast_node("TypeParameter")]
+#[derive(Eq, Hash)]
+pub struct TypeParam {
+    pub span: Span,
+    pub name: Ident,
+
+    #[serde(default)]
+    pub constraint: Option<Box<FlowType>>,
+
+    #[serde(default)]
+    pub default: Option<Box<FlowType>>,
+}
+
 #[ast_node("BooleanLiteralTypeAnnotation")]
 #[derive(Eq, Hash)]
 pub struct BooleanLiteralTypeAnnotation {
@@ -74,5 +103,76 @@ pub struct DeclareClass {
 pub struct DeclareFunction {
     pub span: Span,
     pub declare: bool,
+    pub predicate: bool,
     pub id: Ident,
+}
+
+#[ast_node("InferredPredicate")]
+#[derive(Eq, Hash)]
+pub struct InferredPredicate {
+    pub span: Span,
+}
+
+#[ast_node("DeclaredPredicate")]
+#[derive(Eq, Hash)]
+pub struct DeclaredPredicate {
+    pub span: Span,
+    pub value: Box<Expr>,
+}
+
+#[ast_node("DeclareInterface")]
+#[derive(Eq, Hash)]
+pub struct DeclareInterface {
+    pub span: Span,
+}
+
+#[ast_node("DeclareModule")]
+#[derive(Eq, Hash)]
+pub struct DeclareModule {
+    pub span: Span,
+    pub id: Ident,
+    pub body: Option<ModuleBlock>,
+}
+
+#[ast_node("DeclareModuleExports")]
+#[derive(Eq, Hash)]
+pub struct DeclareModuleExports {
+    pub span: Span,
+    pub type_ann: Option<FlowType>,
+}
+
+#[ast_node("DeclareTypeAlias")]
+#[derive(Eq, Hash)]
+pub struct DeclareTypeAlias {
+    pub span: Span,
+    pub type_params: Option,
+    pub type_ann: Option<FlowType>,
+}
+
+#[ast_node("ModuleBlock")]
+#[derive(Eq, Hash)]
+pub struct ModuleBlock {
+    pub span: Span,
+    pub body: Vec<ModuleItem>,
+}
+
+// ================
+// Flow types
+// ================
+
+#[ast_node]
+#[derive(Ee, Hash)]
+pub enum FlowType {
+    #[tag("KeywordType")]
+    KeywordType(KeywordType),
+
+    #[tag("ThisTypeAnnotation")]
+    ThisTypeAnnotation(ThisTypeAnnotation),
+}
+
+#[ast_node("KeywordType")]
+#[derive(Eq, Hash)]
+pub struct KeywordType {
+    pub span: Span,
+    pub kind: KeywordTypeKind,
 }
