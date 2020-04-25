@@ -81,10 +81,19 @@ impl Tokens for TokensInput {
 }
 
 /// Note: Lexer need access to parser's context to lex correctly.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct Capturing<I: Tokens> {
     inner: I,
     captured: Rc<RefCell<Vec<TokenAndSpan>>>,
+}
+
+impl<I: Tokens> Clone for Capturing<I> {
+    fn clone(&self) -> Self {
+        Capturing {
+            inner: self.inner.clone(),
+            captured: self.captured.clone(),
+        }
+    }
 }
 
 impl<I: Tokens> Capturing<I> {
@@ -106,8 +115,21 @@ impl<I: Tokens> Iterator for Capturing<I> {
     fn next(&mut self) -> Option<Self::Item> {
         let next = self.inner.next();
 
-        self.captured.borrow_mut().extend(next.clone());
-        next
+        match next {
+            Some(ts) => {
+                let mut v = self.captured.borrow_mut();
+                if let Some(last) = v.last() {
+                    if last.span.lo >= ts.span.lo {
+                        return Some(ts);
+                    }
+                }
+
+                v.push(ts.clone());
+
+                Some(ts)
+            }
+            None => None,
+        }
     }
 }
 

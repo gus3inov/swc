@@ -1014,7 +1014,8 @@ impl<'a, I: Tokens> Parser<'a, I> {
 
         let mut cloned = self.clone();
         cloned.emit_err = false;
-        op(&mut cloned)
+        let res = op(&mut cloned);
+        res
     }
 
     /// `tsIsUnambiguouslyStartOfFunctionType`
@@ -1143,7 +1144,7 @@ impl<'a, I: Tokens> Parser<'a, I> {
     /// `tsTryParseIndexSignature`
     pub(super) fn try_parse_ts_index_signature(
         &mut self,
-        start: BytePos,
+        index_signature_start: BytePos,
         readonly: bool,
     ) -> PResult<'a, Option<TsIndexSignature>> {
         if !(is!('[') && self.ts_look_ahead(|p| p.is_ts_unambiguously_index_signature())?) {
@@ -1152,7 +1153,9 @@ impl<'a, I: Tokens> Parser<'a, I> {
 
         expect!('[');
 
+        let ident_start = cur_pos!();
         let mut id = self.parse_ident_name()?;
+        let type_ann_start = cur_pos!();
 
         if eat!(',') {
             self.emit_err(id.span, SyntaxError::TS1096);
@@ -1160,10 +1163,10 @@ impl<'a, I: Tokens> Parser<'a, I> {
             expect!(':');
         }
 
-        let cur_pos = cur_pos!();
-        id.type_ann = self
-            .parse_ts_type_ann(/* eat_colon */ false, cur_pos)
-            .map(Some)?;
+        let type_ann = self.parse_ts_type_ann(/* eat_colon */ false, type_ann_start)?;
+        id.span = span!(ident_start);
+        id.type_ann = Some(type_ann);
+
         expect!(']');
         let params = vec![TsFnParam::Ident(id)];
 
@@ -1172,7 +1175,7 @@ impl<'a, I: Tokens> Parser<'a, I> {
 
         self.parse_ts_type_member_semicolon()?;
         Ok(Some(TsIndexSignature {
-            span: span!(start),
+            span: span!(index_signature_start),
             readonly,
             params,
             type_ann,
@@ -2233,9 +2236,9 @@ impl<'a, I: Tokens> Parser<'a, I> {
     {
         debug_assert!(self.input.syntax().typescript());
 
+        let start = cur_pos!(); // include the leading operator in the start
         self.input.eat(operator);
 
-        let start = cur_pos!();
         let ty = parse_constituent_type(self)?;
         if self.input.is(&operator) {
             let mut types = vec![ty];
@@ -2318,7 +2321,10 @@ fn make_decl_declare(mut decl: Decl) -> Decl {
 
 #[cfg(test)]
 mod tests {
-    use crate::{test_parser, Syntax};
+    use crate::{
+        lexer::Lexer, test_parser, token::TokenAndSpan, Capturing, JscTarget, Parser, Syntax,
+        TsConfig,
+    };
     use swc_common::DUMMY_SP;
     use swc_ecma_ast::*;
     use testing::assert_eq_ignore_span;
@@ -2390,5 +2396,35 @@ mod tests {
         };
 
         assert_eq_ignore_span!(actual, expected);
+    }
+
+    #[test]
+    fn issue_726() {
+        crate::with_test_sess(
+            "type Test = (
+    string | number);",
+            |sess, input| {
+                let lexer = Lexer::new(
+                    sess,
+                    Syntax::Typescript(TsConfig {
+                        ..Default::default()
+                    }),
+                    JscTarget::Es2019,
+                    input,
+                    None,
+                );
+                let lexer = Capturing::new(lexer);
+
+                let mut parser = Parser::new_from(sess, lexer);
+                parser.parse_typescript_module().map_err(|mut e| {
+                    e.emit();
+                })?;
+                let tokens: Vec<TokenAndSpan> = parser.input().take();
+                let tokens = tokens.into_iter().map(|t| t.token).collect::<Vec<_>>();
+                assert_eq!(tokens.len(), 9, "Tokens: {:#?}", tokens);
+                Ok(())
+            },
+        )
+        .unwrap();
     }
 }

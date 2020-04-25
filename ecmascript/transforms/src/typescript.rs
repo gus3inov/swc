@@ -425,17 +425,15 @@ impl Strip {
                                             has_escape: false,
                                         },
                                     };
-                                    let prop = if let Some(init) = &m.init {
-                                        init.clone()
+                                    let prop = if let Some(_) = &m.init {
+                                        box Expr::Lit(Lit::Str(value.clone()))
                                     } else {
                                         box Expr::Assign(AssignExpr {
                                             span: DUMMY_SP,
                                             left: PatOrExpr::Expr(box Expr::Member(MemberExpr {
                                                 span: DUMMY_SP,
                                                 obj: id.clone().as_obj(),
-                                                prop: m.init.unwrap_or_else(|| {
-                                                    box Expr::Lit(Lit::Str(value.clone()))
-                                                }),
+                                                prop: box Expr::Lit(Lit::Str(value.clone())),
                                                 computed: true,
                                             })),
                                             op: op!("="),
@@ -458,11 +456,13 @@ impl Strip {
                                             prop,
                                         })),
                                         op: op!("="),
-                                        right: box Expr::Lit(Lit::Str(Str {
-                                            span: DUMMY_SP,
-                                            value: value.value,
-                                            has_escape: false,
-                                        })),
+                                        right: m.init.unwrap_or_else(|| {
+                                            box Expr::Lit(Lit::Str(Str {
+                                                span: DUMMY_SP,
+                                                value: value.value,
+                                                has_escape: false,
+                                            }))
+                                        }),
                                     }
                                     .into_stmt()
                                 })
@@ -595,10 +595,16 @@ impl Fold<Stmt> for Strip {
 
         match stmt {
             Stmt::Decl(decl) => match decl {
-                Decl::TsInterface(..) | Decl::TsModule(..) | Decl::TsTypeAlias(..) => {
+                Decl::TsInterface(..)
+                | Decl::TsModule(..)
+                | Decl::TsTypeAlias(..)
+                | Decl::Var(VarDecl { declare: true, .. })
+                | Decl::Class(ClassDecl { declare: true, .. })
+                | Decl::Fn(FnDecl { declare: true, .. }) => {
                     let span = decl.span();
                     Stmt::Empty(EmptyStmt { span })
                 }
+
                 _ => Stmt::Decl(decl),
             },
             _ => stmt,

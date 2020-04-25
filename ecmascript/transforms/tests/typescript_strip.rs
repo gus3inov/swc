@@ -295,6 +295,26 @@ var State;
 test!(
     ::swc_ecma_parser::Syntax::Typescript(Default::default()),
     |_| strip(),
+    enum_key_value,
+    "enum StateNum {
+  closed = 'cl0',
+  opened = 'op1',
+  mounted = 'mo2',
+}",
+    r#"
+var StateNum;
+(function (StateNum) {
+    StateNum["closed"] = "cl0";
+    StateNum["opened"] = "op1";
+    StateNum["mounted"] = "mo2";
+})(StateNum || (StateNum = {}));
+"#,
+    ok_if_code_eq
+);
+
+test!(
+    ::swc_ecma_parser::Syntax::Typescript(Default::default()),
+    |_| strip(),
     enum_export_str,
     "export enum State {
   closed = 'closed',
@@ -393,3 +413,9 @@ to!(
 })(FlexSize || (FlexSize = {}));
 "
 );
+
+to!(module_01, "module 'foo'{ }", "");
+
+to!(declare_01, "declare var env: FOO", "");
+
+to!(import_equals, "import A = B.C", "");
