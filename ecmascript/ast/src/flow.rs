@@ -17,37 +17,6 @@ use string_enum::StringEnum;
 use swc_common::Fold;
 use swc_common::{ast_node, Span};
 
-#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialze)]
-#[cfd_attr(feature = "fold", derive(Fold))]
-pub enum KeywordTypeKind {
-    #[serde(rename = "any")]
-    AnyTypeAnnotation,
-
-    #[serde(rename = "boolean")]
-    BooleanTypeAnnotation,
-
-    #[serde(rename = "string")]
-    StringTypeAnnotation,
-
-    #[serde(rename = "number")]
-    NumberTypeAnnotation,
-
-    #[serde(rename = "null")]
-    NullLiteralTypeAnnotation,
-
-    #[serde(rename = "*")]
-    ExistsTypeAnnotation,
-
-    #[serde(rename = "void")]
-    VoidTypeAnnotation,
-
-    #[serde(rename = "mixed")]
-    MixedTypeAnnotation,
-
-    #[serde(rename = "empty")]
-    EmptyTypeAnnotation,
-}
-
 #[ast_node("ThisTypeAnnotation")]
 #[derive(Copy, Eq, Hash)]
 pub struct ThisTypeAnnotation {
@@ -64,7 +33,7 @@ pub struct TypeAnn {
 
 #[ast_node("TypeParamDecl")]
 #[derive(Eq, Hash)]
-pub struct TsTypeParamDecl {
+pub struct TypeParamDecl {
     pub span: Span,
     #[serde(rename = "parameters")]
     pub params: Vec<TypeParam>,
@@ -77,7 +46,7 @@ pub struct TypeParam {
     pub name: Ident,
 
     #[serde(default)]
-    pub constraint: Option<Box<FlowType>>,
+    pub bound: Option<Box<FlowType>>,
 
     #[serde(default)]
     pub default: Option<Box<FlowType>>,
@@ -128,7 +97,7 @@ pub struct DeclareFunction {
     pub declare: bool,
     pub predicate: bool,
     pub id: Ident,
-    pub predicate: InferredOrDeclaredPredicate, 
+    pub predicate: InferredOrDeclaredPredicate,
 }
 
 #[ast_node("InferredPredicate")]
@@ -169,7 +138,7 @@ pub struct DeclareModuleExports {
 #[derive(Eq, Hash)]
 pub struct DeclareTypeAlias {
     pub span: Span,
-    pub type_params: Option,
+    pub type_params: Option<TypeParamDecl>,
     pub type_ann: Option<FlowType>,
 }
 
@@ -178,6 +147,23 @@ pub struct DeclareTypeAlias {
 pub struct ModuleBlock {
     pub span: Span,
     pub body: Vec<ModuleItem>,
+}
+
+#[ast_node("DeclareOpaqueType")]
+#[derive(Eq, Hash)]
+pub struct DeclareOpaqueType {
+    pub span: Span,
+    pub id: Ident,
+    pub type_ann: Option<FlowType>,
+}
+
+#[ast_node("FunctionTypeAnnotation")]
+#[derive(Eq, Hash)]
+pub struct FunctionTypeAnnotation {
+    pub span: Span,
+    pub id: Ident,
+    pub params: Vec<TypeParam>,
+    pub type_params: Option<TypeParamDecl>,
 }
 
 // ================
@@ -192,6 +178,11 @@ pub enum FlowType {
 
     #[tag("ThisTypeAnnotation")]
     ThisTypeAnnotation(ThisTypeAnnotation),
+
+    #[tag("FunctionTypeAnnotation")]
+    FunctionTypeAnnotation(FunctionTypeAnnotation),
+
+
 }
 
 #[ast_node("KeywordType")]
@@ -199,4 +190,35 @@ pub enum FlowType {
 pub struct KeywordType {
     pub span: Span,
     pub kind: KeywordTypeKind,
+}
+
+#[derive(Debug, Copy, Clone, PartialEq, Eq, Hash, Serialize, Deserialze)]
+#[cfd_attr(feature = "fold", derive(Fold))]
+pub enum KeywordTypeKind {
+    #[serde(rename = "any")]
+    AnyTypeAnnotation,
+
+    #[serde(rename = "boolean")]
+    BooleanTypeAnnotation,
+
+    #[serde(rename = "string")]
+    StringTypeAnnotation,
+
+    #[serde(rename = "number")]
+    NumberTypeAnnotation,
+
+    #[serde(rename = "null")]
+    NullLiteralTypeAnnotation,
+
+    #[serde(rename = "*")]
+    ExistsTypeAnnotation,
+
+    #[serde(rename = "void")]
+    VoidTypeAnnotation,
+
+    #[serde(rename = "mixed")]
+    MixedTypeAnnotation,
+
+    #[serde(rename = "empty")]
+    EmptyTypeAnnotation,
 }
