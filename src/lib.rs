@@ -16,8 +16,9 @@ use crate::config::{
 };
 use anyhow::{Context, Error};
 use common::{
-    comments::{Comment, Comments}, errors::Handler, BytePos, FileName, FoldWith, Globals, SourceFile, SourceMap,
-    GLOBALS,
+    comments::{Comment, Comments},
+    errors::Handler,
+    BytePos, FileName, FoldWith, Globals, SourceFile, SourceMap, GLOBALS,
 };
 use ecmascript::{
     ast::Program,
@@ -34,7 +35,11 @@ pub use ecmascript::{
     transforms::{chain_at, pass::Pass},
 };
 use serde::Serialize;
-use std::{fs::File, path::Path, sync::Arc};
+use std::{
+    fs::File,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
 pub struct Compiler {
     /// swc uses rustc's span interning.
@@ -284,9 +289,13 @@ impl Compiler {
                 is_module,
                 ..
             } = opts;
-            let root = root
-                .clone()
-                .unwrap_or_else(|| ::std::env::current_dir().unwrap());
+            let root = root.clone().unwrap_or_else(|| {
+                if cfg!(target_arch = "wasm32") {
+                    PathBuf::new()
+                } else {
+                    ::std::env::current_dir().unwrap()
+                }
+            });
 
             let config_file = match config_file {
                 Some(ConfigFile::Str(ref s)) => {
@@ -391,8 +400,8 @@ impl Compiler {
                     vc.retain(|c: &Comment| c.text.starts_with("!"));
                     !vc.is_empty()
                 };
-                self.comments.retain_leading (preserve_excl);
-                self.comments.retain_trailing (preserve_excl);
+                self.comments.retain_leading(preserve_excl);
+                self.comments.retain_trailing(preserve_excl);
             }
             let mut pass = config.pass;
             let module = helpers::HELPERS.set(&Helpers::new(config.external_helpers), || {

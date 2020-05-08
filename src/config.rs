@@ -13,7 +13,7 @@ use std::{
 };
 use swc_atoms::JsWord;
 pub use swc_common::chain;
-use swc_common::{errors::Handler, FileName, SourceMap};
+use swc_common::{errors::Handler, FileName, Mark, SourceMap};
 pub use swc_ecmascript::parser::JscTarget;
 use swc_ecmascript::{
     ast::{Expr, ExprStmt, ModuleItem, Stmt},
@@ -24,7 +24,7 @@ use swc_ecmascript::{
         optimization::{simplifier, InlineGlobals, JsonParse},
         pass::{noop, Optional, Pass},
         proposals::{class_properties, decorators, export, nullish_coalescing, optional_chaining},
-        react, resolver, typescript,
+        react, resolver_with_mark, typescript,
     },
 };
 
@@ -52,6 +52,7 @@ pub struct Options {
     #[serde(flatten, default)]
     pub config: Option<Config>,
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[serde(default = "default_cwd")]
     pub cwd: PathBuf,
 
@@ -73,6 +74,7 @@ pub struct Options {
     #[serde(default = "default_swcrc")]
     pub swcrc: bool,
 
+    #[cfg(not(target_arch = "wasm32"))]
     #[serde(default)]
     pub swcrc_roots: Option<PathBuf>,
 
@@ -199,13 +201,15 @@ impl Options {
             pass
         };
 
+        let root_mark = Mark::fresh(Mark::root());
+
         let pass = chain!(
             // handle jsx
             Optional::new(react::react(cm.clone(), transform.react), syntax.jsx()),
             Optional::new(typescript::strip(), syntax.typescript()),
             Optional::new(nullish_coalescing(), syntax.nullish_coalescing()),
             Optional::new(optional_chaining(), syntax.optional_chaining()),
-            resolver(),
+            resolver_with_mark(root_mark),
             const_modules,
             optimization,
             Optional::new(
@@ -226,7 +230,7 @@ impl Options {
         let pass = PassBuilder::new(&cm, &handler, loose, pass)
             .target(target)
             .preset_env(config.env)
-            .finalize(syntax, config.module);
+            .finalize(root_mark, syntax, config.module);
 
         BuiltConfig {
             minify: config.minify.unwrap_or(false),
@@ -282,6 +286,7 @@ pub struct CallerOptions {
     pub name: String,
 }
 
+#[cfg(not(target_arch = "wasm32"))]
 fn default_cwd() -> PathBuf {
     ::std::env::current_dir().unwrap()
 }
@@ -514,11 +519,17 @@ pub enum ModuleConfig {
 }
 
 impl ModuleConfig {
-    pub fn build(cm: Arc<SourceMap>, config: Option<ModuleConfig>) -> Box<dyn Pass> {
+    pub fn build(
+        cm: Arc<SourceMap>,
+        root_mark: Mark,
+        config: Option<ModuleConfig>,
+    ) -> Box<dyn Pass> {
         match config {
             None => box noop(),
-            Some(ModuleConfig::CommonJs(config)) => box modules::common_js::common_js(config),
-            Some(ModuleConfig::Umd(config)) => box modules::umd::umd(cm, config),
+            Some(ModuleConfig::CommonJs(config)) => {
+                box modules::common_js::common_js(root_mark, config)
+            }
+            Some(ModuleConfig::Umd(config)) => box modules::umd::umd(cm, root_mark, config),
             Some(ModuleConfig::Amd(config)) => box modules::amd::amd(config),
         }
     }
@@ -637,12 +648,17 @@ impl GlobalPassOption {
         let envs = self.envs;
         InlineGlobals {
             globals: mk_map(cm, handler, self.vars.into_iter(), false),
-            envs: mk_map(
-                cm,
-                handler,
-                env::vars().filter(|(k, _)| envs.contains(&*k)),
-                true,
-            ),
+
+            envs: if cfg!(target_arch = "wasm32") {
+                mk_map(cm, handler, vec![].into_iter(), true)
+            } else {
+                mk_map(
+                    cm,
+                    handler,
+                    env::vars().filter(|(k, _)| envs.contains(&*k)),
+                    true,
+                )
+            },
         }
     }
 }

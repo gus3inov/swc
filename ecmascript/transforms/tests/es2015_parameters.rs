@@ -3,7 +3,7 @@
 #![feature(box_patterns)]
 #![feature(specialization)]
 
-use swc_common::chain;
+use swc_common::{chain, Mark};
 use swc_ecma_parser::Syntax;
 use swc_ecma_transforms::{
     compat::{
@@ -1524,7 +1524,7 @@ test!(
         parameters(),
         destructuring(Default::default()),
         block_scoping(),
-        common_js(Default::default()),
+        common_js(Mark::fresh(Mark::root()), Default::default()),
     ),
     regression_4209,
     r#"
@@ -1683,4 +1683,18 @@ function foo() {
 }
 
 "#
+);
+
+test!(
+    syntax(),
+    |_| chain!(parameters(), destructuring(Default::default())),
+    issue_760,
+    "const initialState = 'foo'
+export default function reducer(state = initialState, action = {}) {
+}",
+    "const initialState = 'foo';
+  export default function reducer(param, param1) {
+      let state = param === void 0 ? initialState : param, action = param1 === void 0 ? {
+      } : param1;
+  }"
 );

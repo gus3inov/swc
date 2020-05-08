@@ -977,7 +977,7 @@ test!(
         tr(),
         Classes::default(),
         destructuring(Default::default()),
-        common_js(Default::default())
+        common_js(Mark::fresh(Mark::root()), Default::default())
     ),
     issue_578_2,
     "
@@ -1097,4 +1097,11 @@ identical!(
   };	
 }	
 "
+);
+
+identical!(
+    issue_760,
+    "var initialState = 'foo';
+    export default function reducer(state = initialState, action = {}) {
+    }"
 );
